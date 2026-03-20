@@ -1,0 +1,10 @@
+fastapi==0.135.1
+uvicorn[standard]==0.42.0
+python-dotenv==1.2.2
+requests==2.32.5
+websocket-client==1.9.0
+py-clob-client==0.34.6
+pandas==3.0.1
+numpy==2.4.3
+schedule==1.2.2
+aiohttp==3.13.3
