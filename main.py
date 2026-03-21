@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from arbitrage import PolymarketArbitrageBot, ArbitrageOpportunity
+from notifications import TelegramNotifier
 
 # Load environment variables
 load_dotenv()
@@ -35,6 +36,7 @@ app = FastAPI(
 
 # Global bot instance
 bot: Optional[PolymarketArbitrageBot] = None
+telegram_notifier: Optional[TelegramNotifier] = None
 
 
 class OpportunityResponse(BaseModel):
@@ -57,7 +59,7 @@ class HealthResponse(BaseModel):
 
 def initialize_bot():
     """Initialize the arbitrage bot with credentials."""
-    global bot
+    global bot, telegram_notifier
 
     private_key = os.getenv("POLYMARKET_PRIVATE_KEY")
     if not private_key:
@@ -72,6 +74,17 @@ def initialize_bot():
         wallet_address=wallet_address
     )
     logger.info("Arbitrage bot initialized")
+
+    # Initialize Telegram notifier if credentials provided
+    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if telegram_token and telegram_chat_id:
+        telegram_notifier = TelegramNotifier(telegram_token, telegram_chat_id)
+        logger.info("Telegram notifier initialized")
+    else:
+        logger.warning("Telegram credentials not set - alerts disabled")
+        telegram_notifier = None
+
     return bot
 
 
@@ -128,6 +141,18 @@ async def scan_opportunities(background_tasks: BackgroundTasks) -> OpportunityRe
 
     # Run scan (could be background for async)
     opportunities = bot.scan_for_opportunities()
+
+    # Send Telegram alerts for high-confidence, high-profit opportunities
+    wallet = os.getenv("THIELON_AGENT_WALLET")
+    if telegram_notifier and opportunities:
+        # Send alert for best opportunity if profit > 2% and confidence > 0.6
+        best_opp = bot.get_best_opportunity()
+        if best_opp and best_opp.expected_profit_pct > 2.0 and best_opp.confidence > 0.6:
+            background_tasks.add_task(
+                telegram_notifier.send_opportunity_alert,
+                best_opp.to_dict(),
+                wallet
+            )
 
     # Get best opportunity
     best_opp = bot.get_best_opportunity()

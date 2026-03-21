@@ -56,7 +56,6 @@ class PolymarketArbitrageBot:
             host="https://clob.polymarket.com",
             key=private_key,
             chain_id=137,  # Polygon
-            logger=logger,
         )
         self.opportunities: List[ArbitrageOpportunity] = []
         self.stats = {
